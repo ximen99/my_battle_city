@@ -53,11 +53,122 @@ class Game():
         self.flag_image = SPRITES.subsurface(64 * 2, 49 * 2, 16 * 2, 15 * 2)
         self.font = pygame.font.Font("fonts/prstart.ttf", 16)
 
+    def on_execute(self):
+        while self._running:
+            time_passed = self._FpsClock.tick(40)
+            if self._playing:
+                if self._newLevel:
+                    self.mapGroup = pygame.sprite.Group()
+                    self.obstacle_rects = []  # maptile tank cannot passthrough
+                    self.myCastileGroup = pygame.sprite.Group()
+                    self.gtimer = Timer()
+                    self.playerGroup = pygame.sprite.Group()
+                    self.myPlayer = playerTank(self.gtimer)
+                    self.playerGroup.add(self.myPlayer)
+                    self.enemyGroup = pygame.sprite.Group()
+                    self.loadLevel(self.level, self.gtimer)
+                    enemies_l = self.levelsEnemy[self.level - 1]
+                    self.enemies_left = [0] * enemies_l[0] + [1] * \
+                        enemies_l[1] + [2] * enemies_l[2] + [3] * enemies_l[3]
+                    random.shuffle(self.enemies_left)
+                # add new enemy tank
+                self.addEnemys()
+                # handle event
+                for event in pygame.event.get():
+                    self.on_event(event)
+                # update game data
+                self.on_loop()
+                # update timer
+                self.gtimer.update(time_passed)
+                self.checkGameOver()
+                # draw to display
+                self.on_render()
+            else:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self._running = False
+                # game over images
+                self.on_render()
+
+        self.on_cleanup()
+
     def on_event(self, event):
         if event.type == pygame.QUIT:
             self._running = False
         # check space key down to fire
         self.myPlayer.on_event(event)
+
+    def on_loop(self):
+        self.myCastileGroup.update()
+        self.playerGroup.update(self.obstacle_rects)
+        self.myPlayer.bulletGroup.update(self.gtimer)
+        self.enemyGroup.update(self.obstacle_rects)
+        for enemy in self.enemyGroup.sprites():
+            enemy.bulletGroup.update(self.gtimer)
+        self.check_collision()
+
+    def on_render(self):
+        self._display_surf.fill((0, 0, 0))
+        self.mapGroup.draw(self._display_surf)
+        self.myCastileGroup.draw(self._display_surf)
+        self.playerGroup.draw(self._display_surf)
+        self.myPlayer.bulletGroup.draw(self._display_surf)
+        self.enemyGroup.draw(self._display_surf)
+
+        for enemy in self.enemyGroup.sprites():
+            enemy.bulletGroup.draw(self._display_surf)
+        # show game over text
+        if not self._playing:
+            if self.game_over_y > 188:
+                self.game_over_y -= 4
+            # 176=(416-64)/2
+            self._display_surf.blit(self.im_game_over, [176, self.game_over_y])
+
+        self.drawSidebar()
+
+        pygame.display.flip()
+
+    def drawSidebar(self):
+
+        x = 416
+        y = 0
+        self._display_surf.fill(
+            [100, 100, 100], pygame.Rect([416, 0], [64, 416]))
+
+        xpos = x + 16
+        ypos = y + 16
+
+        # draw enemy lives
+        for n in range(len(self.enemies_left) + len(self.enemyGroup.sprites())):
+            self._display_surf.blit(self.enemy_life_image, [xpos, ypos])
+            if n % 2 == 1:
+                xpos = x + 16
+                ypos += 17
+            else:
+                xpos += 17
+
+        # players' lives
+        if pygame.font.get_init():
+            text_color = pygame.Color('black')
+            for n in range(len(self.playerGroup.sprites())):
+                if n == 0:
+                    self._display_surf.blit(self.font.render(str(n + 1) + "P",
+                                                             False, text_color), [x + 16, y + 200])
+                    self._display_surf.blit(self.font.render(
+                        str(self.playerGroup.sprites()[n].lives), False, text_color), [x + 31, y + 215])
+                    self._display_surf.blit(
+                        self.player_life_image, [x + 17, y + 215])
+                else:
+                    self._display_surf.blit(self.font.render(str(n + 1) + "P",
+                                                             False, text_color), [x + 16, y + 240])
+                    self._display_surf.blit(self.font.render(
+                        str(self.playerGroup.sprites()[n].lives), False, text_color), [x + 31, y + 255])
+                    self._display_surf.blit(
+                        self.player_life_image, [x + 17, y + 255])
+
+            self._display_surf.blit(self.flag_image, [x + 17, y + 280])
+            self._display_surf.blit(self.font.render(str(self.level),
+                                                     False, text_color), [x + 17, y + 312])
 
     def check_collision(self):
         # check collision between player bullet and map tiles
@@ -129,78 +240,6 @@ class Game():
             if playerTank.state == playerTank.STATE_ALIVE:
                 playerTank.getHit(self.gtimer)
 
-    def on_loop(self):
-        self.myCastileGroup.update()
-        self.playerGroup.update(self.obstacle_rects)
-        self.myPlayer.bulletGroup.update(self.gtimer)
-        self.enemyGroup.update(self.obstacle_rects)
-        for enemy in self.enemyGroup.sprites():
-            enemy.bulletGroup.update(self.gtimer)
-        self.check_collision()
-
-    def drawSidebar(self):
-
-        x = 416
-        y = 0
-        self._display_surf.fill(
-            [100, 100, 100], pygame.Rect([416, 0], [64, 416]))
-
-        xpos = x + 16
-        ypos = y + 16
-
-        # draw enemy lives
-        for n in range(len(self.enemies_left) + len(self.enemyGroup.sprites())):
-            self._display_surf.blit(self.enemy_life_image, [xpos, ypos])
-            if n % 2 == 1:
-                xpos = x + 16
-                ypos += 17
-            else:
-                xpos += 17
-
-        # players' lives
-        if pygame.font.get_init():
-            text_color = pygame.Color('black')
-            for n in range(len(self.playerGroup.sprites())):
-                if n == 0:
-                    self._display_surf.blit(self.font.render(str(n + 1) + "P",
-                                                             False, text_color), [x + 16, y + 200])
-                    self._display_surf.blit(self.font.render(
-                        str(self.playerGroup.sprites()[n].lives), False, text_color), [x + 31, y + 215])
-                    self._display_surf.blit(
-                        self.player_life_image, [x + 17, y + 215])
-                else:
-                    self._display_surf.blit(self.font.render(str(n + 1) + "P",
-                                                             False, text_color), [x + 16, y + 240])
-                    self._display_surf.blit(self.font.render(
-                        str(self.playerGroup.sprites()[n].lives), False, text_color), [x + 31, y + 255])
-                    self._display_surf.blit(
-                        self.player_life_image, [x + 17, y + 255])
-
-            self._display_surf.blit(self.flag_image, [x + 17, y + 280])
-            self._display_surf.blit(self.font.render(str(self.level),
-                                                     False, text_color), [x + 17, y + 312])
-
-    def on_render(self):
-        self._display_surf.fill((0, 0, 0))
-        self.mapGroup.draw(self._display_surf)
-        self.myCastileGroup.draw(self._display_surf)
-        self.playerGroup.draw(self._display_surf)
-        self.myPlayer.bulletGroup.draw(self._display_surf)
-        self.enemyGroup.draw(self._display_surf)
-
-        for enemy in self.enemyGroup.sprites():
-            enemy.bulletGroup.draw(self._display_surf)
-        # show game over text
-        if not self._playing:
-            if self.game_over_y > 188:
-                self.game_over_y -= 4
-            # 176=(416-64)/2
-            self._display_surf.blit(self.im_game_over, [176, self.game_over_y])
-
-        self.drawSidebar()
-
-        pygame.display.flip()
-
     def on_cleanup(self):
         pygame.quit()
 
@@ -244,45 +283,6 @@ class Game():
             self._playing = False
         if self.myPlayer.state == self.myPlayer.STATE_DEAD:
             self._playing = False
-
-    def on_execute(self):
-        while self._running:
-            time_passed = self._FpsClock.tick(40)
-            if self._playing:
-                if self._newLevel:
-                    self.mapGroup = pygame.sprite.Group()
-                    self.obstacle_rects = []  # maptile tank cannot passthrough
-                    self.myCastileGroup = pygame.sprite.Group()
-                    self.gtimer = Timer()
-                    self.playerGroup = pygame.sprite.Group()
-                    self.myPlayer = playerTank(self.gtimer)
-                    self.playerGroup.add(self.myPlayer)
-                    self.enemyGroup = pygame.sprite.Group()
-                    self.loadLevel(self.level, self.gtimer)
-                    enemies_l = self.levelsEnemy[self.level - 1]
-                    self.enemies_left = [0] * enemies_l[0] + [1] * \
-                        enemies_l[1] + [2] * enemies_l[2] + [3] * enemies_l[3]
-                    random.shuffle(self.enemies_left)
-                # add new enemy tank
-                self.addEnemys()
-                # handle event
-                for event in pygame.event.get():
-                    self.on_event(event)
-                # update game data
-                self.on_loop()
-                # update timer
-                self.gtimer.update(time_passed)
-                self.checkGameOver()
-                # draw to display
-                self.on_render()
-            else:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        self._running = False
-                # game over images
-                self.on_render()
-
-        self.on_cleanup()
 
 
 class Timer():
