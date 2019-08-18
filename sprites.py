@@ -142,7 +142,8 @@ class playerTank(pygame.sprite.Sprite):
          self.STATE_ALIVE, self.STATE_EXPLODING) = range(4)
         # list all possible direction
         (self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT) = range(4)
-
+        # player life
+        self.lives = 1
         # px per move
         self.speed = 4
         # image when spawning

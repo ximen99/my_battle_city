@@ -42,6 +42,16 @@ class Game():
             (3, 8, 3, 6), (6, 4, 2, 8), (4, 4,
                                          4, 8), (0, 10, 4, 6), (0, 6, 4, 10)
         )
+        # side bar icon image
+        SPRITES = pygame.transform.scale(pygame.image.load(
+            "/Users/Jeff/Documents/pygame/mytank/images/sprites.gif"), [192, 224])
+
+        self.enemy_life_image = SPRITES.subsurface(
+            81 * 2, 57 * 2, 7 * 2, 7 * 2)
+        self.player_life_image = SPRITES.subsurface(
+            89 * 2, 56 * 2, 7 * 2, 8 * 2)
+        self.flag_image = SPRITES.subsurface(64 * 2, 49 * 2, 16 * 2, 15 * 2)
+        self.font = pygame.font.Font("fonts/prstart.ttf", 16)
 
     def on_event(self, event):
         if event.type == pygame.QUIT:
@@ -128,6 +138,48 @@ class Game():
             enemy.bulletGroup.update(self.gtimer)
         self.check_collision()
 
+    def drawSidebar(self):
+
+        x = 416
+        y = 0
+        self._display_surf.fill(
+            [100, 100, 100], pygame.Rect([416, 0], [64, 416]))
+
+        xpos = x + 16
+        ypos = y + 16
+
+        # draw enemy lives
+        for n in range(len(self.enemies_left) + len(self.enemyGroup.sprites())):
+            self._display_surf.blit(self.enemy_life_image, [xpos, ypos])
+            if n % 2 == 1:
+                xpos = x + 16
+                ypos += 17
+            else:
+                xpos += 17
+
+        # players' lives
+        if pygame.font.get_init():
+            text_color = pygame.Color('black')
+            for n in range(len(self.playerGroup.sprites())):
+                if n == 0:
+                    self._display_surf.blit(self.font.render(str(n + 1) + "P",
+                                                             False, text_color), [x + 16, y + 200])
+                    self._display_surf.blit(self.font.render(
+                        str(self.playerGroup.sprites()[n].lives), False, text_color), [x + 31, y + 215])
+                    self._display_surf.blit(
+                        self.player_life_image, [x + 17, y + 215])
+                else:
+                    self._display_surf.blit(self.font.render(str(n + 1) + "P",
+                                                             False, text_color), [x + 16, y + 240])
+                    self._display_surf.blit(self.font.render(
+                        str(self.playerGroup.sprites()[n].lives), False, text_color), [x + 31, y + 255])
+                    self._display_surf.blit(
+                        self.player_life_image, [x + 17, y + 255])
+
+            self._display_surf.blit(self.flag_image, [x + 17, y + 280])
+            self._display_surf.blit(self.font.render(str(self.level),
+                                                     False, text_color), [x + 17, y + 312])
+
     def on_render(self):
         self._display_surf.fill((0, 0, 0))
         self.mapGroup.draw(self._display_surf)
@@ -144,6 +196,8 @@ class Game():
                 self.game_over_y -= 4
             # 176=(416-64)/2
             self._display_surf.blit(self.im_game_over, [176, self.game_over_y])
+
+        self.drawSidebar()
 
         pygame.display.flip()
 
